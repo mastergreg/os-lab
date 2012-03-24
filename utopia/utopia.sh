@@ -125,6 +125,11 @@ if [ -e "$PRIVATE_COW" ] && [ ! -f "$PRIVATE_COW" ]; then
     exit 1
 fi
 
+
+export TMPDIR=/tmp/cslabb08/uml
+mkdir -p $TMPDIR
+chmod 777 $TMPDIR
+
 echo " "
 echo " $PF Transfering to Utopia ..."
 echo " "
