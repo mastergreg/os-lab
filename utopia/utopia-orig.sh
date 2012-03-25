@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # utopia.sh
 #
@@ -124,11 +124,6 @@ if [ -e "$PRIVATE_COW" ] && [ ! -f "$PRIVATE_COW" ]; then
     echo "Please specify a valid private COW filesystem image." 1>&2
     exit 1
 fi
-
-
-export TMPDIR=/tmp/uml/$(whoami)
-mkdir -p $TMPDIR
-chmod 777 $TMPDIR
 
 echo " "
 echo " $PF Transfering to Utopia ..."
