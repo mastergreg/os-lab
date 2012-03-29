@@ -1,0 +1,2 @@
+/home/master/Repos/os-lab/helpcode/lunix-tng-helpcode-20120322/lunix.ko
+/home/master/Repos/os-lab/helpcode/lunix-tng-helpcode-20120322/lunix-module.o /home/master/Repos/os-lab/helpcode/lunix-tng-helpcode-20120322/lunix-chrdev.o /home/master/Repos/os-lab/helpcode/lunix-tng-helpcode-20120322/lunix-ldisc.o /home/master/Repos/os-lab/helpcode/lunix-tng-helpcode-20120322/lunix-protocol.o /home/master/Repos/os-lab/helpcode/lunix-tng-helpcode-20120322/lunix-sensors.o
