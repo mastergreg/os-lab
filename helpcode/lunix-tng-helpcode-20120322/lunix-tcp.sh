@@ -1,6 +1,6 @@
 #!/bin/bash
 
-TCP_ENDPOINT=danaos.cslab.ece.ntua.gr:49152
+TCP_ENDPOINT=cerberus.cslab.ece.ntua.gr:49152
 
 if [ $# -ne 1 ]; then
 	cat <<EOF
