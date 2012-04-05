@@ -380,7 +380,7 @@ static int tty_open(char *name)
 	/* Try opening the TTY device. */
 	if (name != NULL) {
 		if (name[0] != '/') {
-			if (strlen(name + 6) > sizeof(pathbuf)) {
+			if (strlen(name) > sizeof(pathbuf) - 6) {
 				fprintf(stderr, "tty name too long\n");
 				return -1;
 			}
