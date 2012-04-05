@@ -41,7 +41,7 @@ struct lunix_chrdev_state_struct {
 	struct semaphore lock;
 
 	/*
-	 * Fixme: Any mode settings? e.g. blocking vs. non-blocking
+	 * FIXME: Any mode settings? e.g. blocking vs. non-blocking
 	 */
 };
 

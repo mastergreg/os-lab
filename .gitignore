@@ -2,3 +2,4 @@ local
 *.o
 *.cmd
 *.ko
+*.pdf

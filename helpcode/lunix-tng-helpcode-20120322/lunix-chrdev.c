@@ -4,7 +4,8 @@
  * Implementation of character devices
  * for Lunix:TNG
  *
- * < Your name here >
+ * Vasilis (indorilftw) Gerakaris <vgerak@gmail.com>
+ * Gregory (mastergreg) Liras <gregliras@gmail.com>
  *
  */
 
@@ -65,6 +66,10 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	 */
 	/* ? */
 	/* Why use spinlocks? See LDD3, p. 119 */
+    spin_lock_bh();
+    /* reader dragon here */
+    spin_unlock_bh();
+
 
 	/*
 	 * Any new data available?
