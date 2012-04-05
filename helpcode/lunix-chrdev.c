@@ -57,6 +57,7 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
 static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 {
 	struct lunix_sensor_struct *sensor;
+    unsigned long sflags;
 	
 	debug("leaving\n");
 
@@ -66,9 +67,9 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	 */
 	/* ? */
 	/* Why use spinlocks? See LDD3, p. 119 */
-    spin_lock_bh();
+    //spin_lock_irqsave(&sensor->lock, sflags);
     /* reader dragon here */
-    spin_unlock_bh();
+    //spin_unlock_irqsave(&sensor->lock);
 
 
 	/*
@@ -194,18 +195,21 @@ int lunix_chrdev_init(void)
 	unsigned int lunix_minor_cnt = lunix_sensor_cnt << 3;
 	
 	debug("initializing character device\n");
+    /* initialize the chardev */
 	cdev_init(&lunix_chrdev_cdev, &lunix_chrdev_fops);
 	lunix_chrdev_cdev.owner = THIS_MODULE;
 	
 	dev_no = MKDEV(LUNIX_CHRDEV_MAJOR, 0);
 	/* ? */
 	/* register_chrdev_region? */
+    ret = register_chrdev_region(dev_no, lunix_minor_cnt, "lunixDragon" );
 	if (ret < 0) {
 		debug("failed to register region, ret = %d\n", ret);
 		goto out;
 	}	
 	/* ? */
 	/* cdev_add? */
+    //ret = cdev_add( lunix_chrdev_cdev, dev_no, lunix_minor_cnt );
 	if (ret < 0) {
 		debug("failed to add character device\n");
 		goto out_with_chrdev_region;
