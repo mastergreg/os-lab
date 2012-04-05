@@ -43,10 +43,10 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
 	struct lunix_sensor_struct *sensor;
 	
 	WARN_ON ( !(sensor = state->sensor));
-	/* ? */
+	/* TODO */
 
 	/* The following return is bogus, just for the stub to compile */
-	return 0; /* ? */
+	return 0; /* TODO */
 }
 
 /*
@@ -65,24 +65,24 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	 * Grab the raw data quickly, hold the
 	 * spinlock for as little as possible.
 	 */
-	/* ? */
+	/* TODO */
 	/* Why use spinlocks? See LDD3, p. 119 */
-    //spin_lock_irqsave(&sensor->lock, sflags);
+    spin_lock_irqsave(&sensor->lock, sflags);
     /* reader dragon here */
-    //spin_unlock_irqsave(&sensor->lock);
+    spin_unlock_irqrestore(&sensor->lock, sflags);
 
 
 	/*
 	 * Any new data available?
 	 */
-	/* ? */
+	/* TODO */
 
 	/*
 	 * Now we can take our time to format them,
 	 * holding only the private state semaphore
 	 */
 
-	/* ? */
+	/* TODO */
 
 	debug("leaving\n");
 	return 0;
@@ -96,7 +96,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 {
 	/* Declarations */
-	/* ? */
+	/* TODO */
 	int ret;
 
 	debug("entering\n");
@@ -110,7 +110,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	 */
 	
 	/* Allocate a new Lunix character device private state structure */
-	/* ? */
+	/* TODO */
 out:
 	debug("leaving, with ret = %d\n", ret);
 	return ret;
@@ -118,7 +118,7 @@ out:
 
 static int lunix_chrdev_release(struct inode *inode, struct file *filp)
 {
-	/* ? */
+	/* TODO */
 	return 0;
 }
 
@@ -149,20 +149,20 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	 */
 	if (*f_pos == 0) {
 		while (lunix_chrdev_state_update(state) == -EAGAIN) {
-			/* ? */
+			/* TODO */
 			/* The process needs to sleep */
 			/* See LDD3, page 153 for a hint */
 		}
 	}
 
 	/* End of file */
-	/* ? */
+	/* TODO */
 	
 	/* Determine the number of cached bytes to copy to userspace */
-	/* ? */
+	/* TODO */
 
 	/* Auto-rewind on EOF mode? */
-	/* ? */
+	/* TODO */
 out:
 	/* Unlock? */
 	return ret;
@@ -175,7 +175,7 @@ static int lunix_chrdev_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static struct file_operations lunix_chrdev_fops = 
 {
-        .owner          = THIS_MODULE,
+    .owner          = THIS_MODULE,
 	.open           = lunix_chrdev_open,
 	.release        = lunix_chrdev_release,
 	.read           = lunix_chrdev_read,
@@ -197,19 +197,22 @@ int lunix_chrdev_init(void)
 	debug("initializing character device\n");
     /* initialize the chardev */
 	cdev_init(&lunix_chrdev_cdev, &lunix_chrdev_fops);
+
+    /* FIXME: isn't this set in the initialization?
+     * line 178 ? */
 	lunix_chrdev_cdev.owner = THIS_MODULE;
 	
 	dev_no = MKDEV(LUNIX_CHRDEV_MAJOR, 0);
-	/* ? */
+	/* TODO */
 	/* register_chrdev_region? */
     ret = register_chrdev_region(dev_no, lunix_minor_cnt, "lunixDragon" );
 	if (ret < 0) {
 		debug("failed to register region, ret = %d\n", ret);
 		goto out;
 	}	
-	/* ? */
+	/* TODO */
 	/* cdev_add? */
-    //ret = cdev_add( lunix_chrdev_cdev, dev_no, lunix_minor_cnt );
+    ret = cdev_add( &lunix_chrdev_cdev, dev_no, lunix_minor_cnt );
 	if (ret < 0) {
 		debug("failed to add character device\n");
 		goto out_with_chrdev_region;

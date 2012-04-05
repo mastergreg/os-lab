@@ -31,6 +31,8 @@ endif
 obj-m	:= lunix.o
 lunix-objs := lunix-module.o lunix-chrdev.o lunix-ldisc.o lunix-protocol.o lunix-sensors.o
 
+# custom kernel location so i don't have to set it every time
+KERNELDIR = ../utopia/linux
 # If KERNELDIR is not already set, set it to the build tree of the current kernel
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 # Uncomment the following, or set KERNEL_MAKE_ARGS in the environment if building for UML
