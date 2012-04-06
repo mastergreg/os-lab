@@ -58,8 +58,13 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 {
 	struct lunix_sensor_struct *sensor;
     unsigned long sflags;
+    unsigned long newdata;
+    uint32_t data;
+    uint32_t timestamp;
 	
 	debug("leaving\n");
+
+	WARN_ON ( !(sensor = state->sensor));
 
 	/*
 	 * Grab the raw data quickly, hold the
@@ -69,7 +74,10 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	/* Why use spinlocks? See LDD3, p. 119 */
     spin_lock_irqsave(&sensor->lock, sflags);
     /* reader dragon here */
+    data = sensor->msr_data[state->type]->values[0];
+    timestamp = sensor->msr_data[state->type]->last_update;
     spin_unlock_irqrestore(&sensor->lock, sflags);
+    /* ok i got the data */
 
 
 	/*
@@ -77,12 +85,27 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	 */
 	/* TODO */
 
+    newdata=0;
+    if ( timestamp > state->buf_timestamp ) {
+        newdata = 1;
+    }
+
+
 	/*
 	 * Now we can take our time to format them,
 	 * holding only the private state semaphore
 	 */
 
 	/* TODO */
+    if ( newdata==1 ) {
+        down(&state->lock);
+
+        snprintf(state->buf_data, state->buf_lim, "%u", data );
+        state->buf_timestamp = timestamp;
+
+        up(&state->lock);
+        debug(state->buf_data);
+    }
 
 	debug("leaving\n");
 	return 0;
