@@ -64,6 +64,8 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
     unsigned long newdata;
     uint32_t data;
     uint32_t timestamp;
+    const char device_str[ N_LUNIX_MSR ][ LUNIX_CHRDEV_BUFSZ ] = { "Battery", "Temp", "Light" };
+
 	
 	debug("leaving\n");
 
@@ -102,7 +104,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
     if ( newdata==1 ) {
         down(&state->lock);
 
-        snprintf( state -> buf_data, LUNIX_CHRDEV_BUFSZ, "type: %d %u\n", state->type , data );
+        snprintf( state -> buf_data, LUNIX_CHRDEV_BUFSZ, "%s: %u\n", device_str[state->type], data );
         state -> buf_data[ LUNIX_CHRDEV_BUFSZ-1 ]='\0';
         state -> buf_timestamp = timestamp;
         state -> buf_lim = strnlen( state -> buf_data, LUNIX_CHRDEV_BUFSZ );
