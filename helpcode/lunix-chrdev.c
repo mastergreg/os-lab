@@ -44,6 +44,9 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
 	
 	WARN_ON ( !(sensor = state->sensor));
 	/* TODO */
+    if ( sensor->msr_data[state->type]->last_update > state->buf_timestamp ) {
+        return 1;
+    }
 
 	/* The following return is bogus, just for the stub to compile */
 	return 0; /* TODO */
@@ -74,8 +77,11 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	/* Why use spinlocks? See LDD3, p. 119 */
     spin_lock_irqsave(&sensor->lock, sflags);
     /* reader dragon here */
-    data = sensor->msr_data[state->type]->values[0];
-    timestamp = sensor->msr_data[state->type]->last_update;
+    newdata=lunix_chrdev_state_needs_refresh(state);
+    if ( newdata == 1 ) {
+        data = sensor->msr_data[state->type]->values[0];
+        timestamp = sensor->msr_data[state->type]->last_update;
+    }
     spin_unlock_irqrestore(&sensor->lock, sflags);
     /* ok i got the data */
 
@@ -85,10 +91,6 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	 */
 	/* TODO */
 
-    newdata=0;
-    if ( timestamp > state->buf_timestamp ) {
-        newdata = 1;
-    }
 
 
 	/*
@@ -101,14 +103,15 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
         down(&state->lock);
 
         snprintf(state->buf_data, state->buf_lim, "%u", data );
+        state->buf_data[state->buf_lim-1]='\0';
         state->buf_timestamp = timestamp;
 
         up(&state->lock);
-        debug(state->buf_data);
+        debug("chill i got this: %u\n",data) ;
     }
 
 	debug("leaving\n");
-	return 0;
+    return 0;
 }
 
 /*************************************
@@ -121,6 +124,9 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	/* Declarations */
 	/* TODO */
 	int ret;
+    dev_t minor;
+    int type;
+    struct lunix_chrdev_state_struct *state;
 
 	debug("entering\n");
 	ret = -ENODEV;
@@ -131,9 +137,30 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 	 * Associate this open file with the relevant sensor based on
 	 * the minor number of the device node [/dev/sensor<NO>-<TYPE>]
 	 */
+
+    minor = iminor( inode );
+    type = minor & 7;
 	
 	/* Allocate a new Lunix character device private state structure */
 	/* TODO */
+    state = kmalloc( sizeof( struct lunix_chrdev_state_struct) , GFP_USER );
+    if ( !state ) {
+        debug( "open:failed to allocate resource\n" ) ;
+        goto out;
+
+    }
+
+    state -> type = type < N_LUNIX_MSR ? type : 0;
+    state -> buf_lim = LUNIX_CHRDEV_BUFSZ;
+    state -> sensor = &lunix_sensors[( minor >> 3 )];
+    state -> buf_timestamp = 0;
+
+    sema_init( &state->lock, 1 );
+
+    debug( "open: allocation complete \n" ) ;
+    
+    filp->private_data = state;
+
 out:
 	debug("leaving, with ret = %d\n", ret);
 	return ret;
@@ -142,6 +169,7 @@ out:
 static int lunix_chrdev_release(struct inode *inode, struct file *filp)
 {
 	/* TODO */
+    kfree( filp->private_data );
 	return 0;
 }
 
@@ -165,6 +193,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	WARN_ON(!sensor);
 
 	/* Lock? */
+    down( &state->lock ) ;
 	/*
 	 * If the cached character device state needs to be
 	 * updated by actual sensor data (i.e. we need to report
@@ -188,6 +217,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	/* TODO */
 out:
 	/* Unlock? */
+    up( &state->lock ) ;
 	return ret;
 }
 
@@ -228,7 +258,7 @@ int lunix_chrdev_init(void)
 	dev_no = MKDEV(LUNIX_CHRDEV_MAJOR, 0);
 	/* TODO */
 	/* register_chrdev_region? */
-    ret = register_chrdev_region(dev_no, lunix_minor_cnt, "lunixDragon" );
+    ret = register_chrdev_region(dev_no, lunix_minor_cnt, "lunix" );
 	if (ret < 0) {
 		debug("failed to register region, ret = %d\n", ret);
 		goto out;
