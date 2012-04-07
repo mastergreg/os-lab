@@ -102,12 +102,13 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
     if ( newdata==1 ) {
         down(&state->lock);
 
-        snprintf(state->buf_data, state->buf_lim, "%u", data );
-        state->buf_data[state->buf_lim-1]='\0';
-        state->buf_timestamp = timestamp;
+        snprintf( state -> buf_data, LUNIX_CHRDEV_BUFSZ, "%u", data );
+        state -> buf_data[ LUNIX_CHRDEV_BUFSZ-1 ]='\0';
+        state -> buf_timestamp = timestamp;
+        state -> buf_lim = strnlen( state -> buf_data, LUNIX_CHRDEV_BUFSZ );
 
-        up(&state->lock);
-        debug("chill i got this: %u\n",data) ;
+        up( & state -> lock );
+        debug( "chill, i got this: %u\n", data ) ;
     }
 
 	debug("leaving\n");
@@ -147,11 +148,10 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
     if ( !state ) {
         debug( "open:failed to allocate resource\n" ) ;
         goto out;
-
     }
 
     state -> type = type < N_LUNIX_MSR ? type : 0;
-    state -> buf_lim = LUNIX_CHRDEV_BUFSZ;
+    state -> buf_lim = 0;
     state -> sensor = &lunix_sensors[( minor >> 3 )];
     state -> buf_timestamp = 0;
 
@@ -169,7 +169,11 @@ out:
 static int lunix_chrdev_release(struct inode *inode, struct file *filp)
 {
 	/* TODO */
-    kfree( filp->private_data );
+    /*
+     * FIXME:
+     * do we need to release anything here?
+     * possible memory leak exists on multiple open
+     */
 	return 0;
 }
 
@@ -193,19 +197,38 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	WARN_ON(!sensor);
 
 	/* Lock? */
-    down( &state->lock ) ;
+
+    /*
+     *  we cannot lock here, 
+     *  if we do update cannot work properly
+     */
+
 	/*
 	 * If the cached character device state needs to be
 	 * updated by actual sensor data (i.e. we need to report
 	 * on a "fresh" measurement, do so
 	 */
 	if (*f_pos == 0) {
+        DEFINE_WAIT( mwait );
+        prepare_to_wait( sensor -> wait_queue_head_t, &mwait, TASK_INTERRUPTIBLE );
 		while (lunix_chrdev_state_update(state) == -EAGAIN) {
-			/* TODO */
-			/* The process needs to sleep */
-			/* See LDD3, page 153 for a hint */
+			/* TODO 
+			   The process needs to sleep 
+			   See LDD3, page 153 for a hint */
+            schedule();
+            /*
+             * it should be interruptible
+             * the spinlock spins
+             */
 		}
+        finish_wait( sensor -> wait_queue_head_t, &mwait );
 	}
+
+
+    /*
+     * now we can lock
+     */
+    down( &state->lock ) ;
 
 	/* End of file */
 	/* TODO */
