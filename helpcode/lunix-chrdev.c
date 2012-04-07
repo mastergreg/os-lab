@@ -102,13 +102,13 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
     if ( newdata==1 ) {
         down(&state->lock);
 
-        snprintf( state -> buf_data, LUNIX_CHRDEV_BUFSZ, "%u", data );
+        snprintf( state -> buf_data, LUNIX_CHRDEV_BUFSZ, "type: %d %u\n", state->type , data );
         state -> buf_data[ LUNIX_CHRDEV_BUFSZ-1 ]='\0';
         state -> buf_timestamp = timestamp;
         state -> buf_lim = strnlen( state -> buf_data, LUNIX_CHRDEV_BUFSZ );
 
         up( & state -> lock );
-        debug( "chill, i got this: %u\n", data ) ;
+        debug( "chill, i got this: %d\n", data ) ;
     }
 
 	debug("leaving\n");
@@ -172,7 +172,8 @@ static int lunix_chrdev_release(struct inode *inode, struct file *filp)
     /*
      * FIXME:
      * do we need to release anything here?
-     * possible memory leak exists on multiple open
+     * possible memory leak exists 
+     * on multiple calls to open
      */
 	return 0;
 }
@@ -191,12 +192,19 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	struct lunix_chrdev_state_struct *state;
 
 	state = filp->private_data;
-	WARN_ON(!state);
+	if (WARN_ON(!state) ) {
+        ret = -EINVAL;
+        goto out;
+    }
 
 	sensor = state->sensor;
-	WARN_ON(!sensor);
+	if (WARN_ON(!sensor) ) {
+        ret = -EINVAL;
+        goto out;
+    }
 
 	/* Lock? */
+    debug( "trying to read\n" ) ;
 
     /*
      *  we cannot lock here, 
@@ -210,20 +218,21 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	 */
 	if (*f_pos == 0) {
         DEFINE_WAIT( mwait );
-        prepare_to_wait( sensor -> wait_queue_head_t, &mwait, TASK_INTERRUPTIBLE );
 		while (lunix_chrdev_state_update(state) == -EAGAIN) {
 			/* TODO 
 			   The process needs to sleep 
 			   See LDD3, page 153 for a hint */
+            prepare_to_wait( &sensor -> wq, &mwait, TASK_INTERRUPTIBLE );
             schedule();
+            finish_wait( &sensor -> wq, &mwait );
             /*
              * it should be interruptible
              * the spinlock spins
              */
 		}
-        finish_wait( sensor -> wait_queue_head_t, &mwait );
 	}
 
+    debug( "read some data\n" ) ;
 
     /*
      * now we can lock
@@ -232,9 +241,24 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 
 	/* End of file */
 	/* TODO */
+    if ( *f_pos >= state -> buf_lim ) {
+        ret = 0;
+        goto out;
+    }
 	
 	/* Determine the number of cached bytes to copy to userspace */
 	/* TODO */
+
+    cnt = cnt > state -> buf_lim ? state -> buf_lim : cnt;
+    if ( ( ret = copy_to_user( usrbuf, state -> buf_data, cnt ) ) < 0 ) {
+        ret = -EFAULT;
+        goto out;
+    }
+
+    debug( "state -> buf_data = %s, usrbuf = %s" , state -> buf_data, usrbuf );
+
+    ret = cnt - ret;
+    *f_pos += ret;
 
 	/* Auto-rewind on EOF mode? */
 	/* TODO */
