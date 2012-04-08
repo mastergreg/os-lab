@@ -64,7 +64,13 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
     unsigned long newdata;
     uint32_t data;
     uint32_t timestamp;
-    const char device_str[ N_LUNIX_MSR ][ LUNIX_CHRDEV_BUFSZ ] = { "Battery", "Temp", "Light" };
+    long *lookup[N_LUNIX_MSR] = { lookup_voltage, lookup_temperature, lookup_light };
+    long data_value;
+    unsigned int decimal;
+    unsigned int fractional;
+    unsigned char sign;
+
+    int ret;
 
 	
 	debug("leaving\n");
@@ -102,19 +108,32 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 
 	/* TODO */
     if ( newdata==1 ) {
-        down(&state->lock);
+        if ( down_interruptible(&state->lock) ) {
+            ret = -EAGAIN;
+            goto out;
+        }
+        data_value = lookup[ state -> type ][ data ];
+        
+        sign = ( int ) data_value >= 0 ? '+' : '-';
+        decimal = data_value / 1000;
+        fractional = data_value % 1000;
 
-        snprintf( state -> buf_data, LUNIX_CHRDEV_BUFSZ, "%s: %u\n", device_str[state->type], data );
+        snprintf( state -> buf_data, LUNIX_CHRDEV_BUFSZ, "%c%d.%d\n", sign, decimal , fractional );
         state -> buf_data[ LUNIX_CHRDEV_BUFSZ-1 ]='\0';
         state -> buf_timestamp = timestamp;
         state -> buf_lim = strnlen( state -> buf_data, LUNIX_CHRDEV_BUFSZ );
 
         up( & state -> lock );
-        debug( "chill, i got this: %d\n", data ) ;
+        ret = 0;
+    }
+    else {
+        ret = -EAGAIN;
+        goto out;
     }
 
+out:
 	debug("leaving\n");
-    return 0;
+    return ret;
 }
 
 /*************************************
@@ -189,6 +208,7 @@ static long lunix_chrdev_ioctl(struct file *filp, unsigned int cmd, unsigned lon
 static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t cnt, loff_t *f_pos)
 {
 	ssize_t ret;
+	ssize_t remaining;
 
 	struct lunix_sensor_struct *sensor;
 	struct lunix_chrdev_state_struct *state;
@@ -239,25 +259,29 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
     /*
      * now we can lock
      */
-    down( &state->lock ) ;
+    if ( down_interruptible(&state->lock) ) {
+        ret = EAGAIN;
+        goto out;
+    }
 
 	/* End of file */
 	/* TODO */
     if ( *f_pos >= state -> buf_lim ) {
-        ret = 0;
+        ret = EAGAIN;
+        *f_pos = 0;
         goto out;
     }
 	
 	/* Determine the number of cached bytes to copy to userspace */
 	/* TODO */
+    remaining = state -> buf_lim - *f_pos;
 
-    cnt = cnt > state -> buf_lim ? state -> buf_lim : cnt;
-    if ( ( ret = copy_to_user( usrbuf, state -> buf_data, cnt ) ) < 0 ) {
+    cnt = cnt >  remaining ? remaining : cnt;
+    if ( ( ret = copy_to_user( usrbuf, state -> buf_data+*f_pos, cnt ) ) < 0 ) {
         ret = -EFAULT;
         goto out;
     }
 
-    debug( "state -> buf_data = %s, usrbuf = %s" , state -> buf_data, usrbuf );
 
     ret = cnt - ret;
     *f_pos += ret;
