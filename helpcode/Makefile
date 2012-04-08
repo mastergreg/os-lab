@@ -18,7 +18,7 @@ DEBUG = y
 # Warnings are errors.
 ifeq ($(DEBUG),y)
   EXTRA_CFLAGS += -g -DLUNIX_DEBUG=1
-  EXTRA_CFLAGS += -Werror
+  #EXTRA_CFLAGS += -Werror
 else
   EXTRA_CFLAGS += -DLUNIX_DEBUG=0
   # EXTRA_CFLAGS += -Werror

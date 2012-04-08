@@ -83,14 +83,14 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 	 */
 	/* TODO */
 	/* Why use spinlocks? See LDD3, p. 119 */
-    spin_lock_irqsave(&sensor->lock, sflags);
+    spin_lock_irqsave( &sensor->lock, sflags );
     /* reader dragon here */
-    newdata=lunix_chrdev_state_needs_refresh(state);
+    newdata = lunix_chrdev_state_needs_refresh( state );
     if ( newdata == 1 ) {
-        data = sensor->msr_data[state->type]->values[0];
-        timestamp = sensor->msr_data[state->type]->last_update;
+        data = sensor -> msr_data[ state -> type ] -> values[ 0 ];
+        timestamp = sensor -> msr_data[ state -> type ] -> last_update;
     }
-    spin_unlock_irqrestore(&sensor->lock, sflags);
+    spin_unlock_irqrestore( &sensor -> lock, sflags );
     /* ok i got the data */
 
 
@@ -108,7 +108,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 
 	/* TODO */
     if ( newdata==1 ) {
-        if ( down_interruptible(&state->lock) ) {
+        if ( down_interruptible( &state -> lock ) ) {
             ret = -EAGAIN;
             goto out;
         }
@@ -123,7 +123,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
         state -> buf_timestamp = timestamp;
         state -> buf_lim = strnlen( state -> buf_data, LUNIX_CHRDEV_BUFSZ );
 
-        up( & state -> lock );
+        up( &state -> lock );
         ret = 0;
     }
     else {
@@ -212,6 +212,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 
 	struct lunix_sensor_struct *sensor;
 	struct lunix_chrdev_state_struct *state;
+    DEFINE_WAIT( mwait ) ;
 
 	state = filp->private_data;
 	if (WARN_ON(!state) ) {
@@ -239,11 +240,14 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	 * on a "fresh" measurement, do so
 	 */
 	if (*f_pos == 0) {
-        DEFINE_WAIT( mwait );
 		while (lunix_chrdev_state_update(state) == -EAGAIN) {
 			/* TODO 
 			   The process needs to sleep 
 			   See LDD3, page 153 for a hint */
+            if ( filp -> f_flags & O_NONBLOCK ) {
+                ret =  -EAGAIN;
+                goto out;
+            }
             prepare_to_wait( &sensor -> wq, &mwait, TASK_INTERRUPTIBLE );
             schedule();
             finish_wait( &sensor -> wq, &mwait );
@@ -260,15 +264,14 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
      * now we can lock
      */
     if ( down_interruptible(&state->lock) ) {
-        ret = EAGAIN;
+        ret = -ERESTARTSYS;
         goto out;
     }
 
 	/* End of file */
 	/* TODO */
     if ( *f_pos >= state -> buf_lim ) {
-        ret = EAGAIN;
-        *f_pos = 0;
+        ret = 0;
         goto out;
     }
 	
@@ -288,6 +291,16 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 
 	/* Auto-rewind on EOF mode? */
 	/* TODO */
+    if ( *f_pos >= state -> buf_lim ) {
+        debug( "limit reached\n" );
+        *f_pos = 0;
+        goto out;
+    }
+    /*
+     * FIXME:
+     * EOF means that f_pos >= state -> buf_lim
+     * it's handled already
+     */
 out:
 	/* Unlock? */
     up( &state->lock ) ;
