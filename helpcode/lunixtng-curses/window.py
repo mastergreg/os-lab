@@ -4,7 +4,7 @@
 #* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
 # File Name : window.py
 # Creation Date : 10-04-2012
-# Last Modified : Tue 10 Apr 2012 01:31:27 PM EEST
+# Last Modified : Tue 10 Apr 2012 01:39:07 PM EEST
 # Created By : Greg Liras <gregliras@gmail.com>
 #_._._._._._._._._._._._._._._._._._._._._.*/
 import curses
@@ -34,5 +34,8 @@ def main():
     curses.endwin()
 
 if __name__=="__main__":
-    main()
+    try:
+        main()
+    except KeyboardInterrupt:
+        exit(0)
 
