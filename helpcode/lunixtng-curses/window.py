@@ -4,37 +4,30 @@
 #* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
 # File Name : window.py
 # Creation Date : 10-04-2012
-# Last Modified : Tue 10 Apr 2012 12:27:09 PM EEST
+# Last Modified : Tue 10 Apr 2012 01:10:36 PM EEST
 # Created By : Greg Liras <gregliras@gmail.com>
 #_._._._._._._._._._._._._._._._._._._._._.*/
 import curses
 from gatherer import gatherer
-from time improt sleep
+from time import sleep
+from signal import signal,SIGINT
 
 def main():
-    bat0   = getherer("/dev/lunix0-bat")
-    light0 = getherer("/dev/lunix0-light")
-    temp0  = getherer("/dev/lunix0-temp")
-    bat1   = getherer("/dev/lunix1-bat")
-    light1 = getherer("/dev/lunix1-light")
-    temp1  = getherer("/dev/lunix1-temp")
-    bat0.start()
-    light0.start()
-    temp.start()
-    bat1.start()
-    light1.start()
-    temp1.start()
+    bat0   = gatherer("/dev/lunix0-bat")
+    light0 = gatherer("/dev/lunix0-light")
+    temp0  = gatherer("/dev/lunix0-temp")
+    bat1   = gatherer("/dev/lunix1-bat")
+    light1 = gatherer("/dev/lunix1-light")
+    temp1  = gatherer("/dev/lunix1-temp")
+    threads=[ bat0, light0, temp0, bat1, light1, temp1 ]
+    map( lambda x : x.start,threads )
 
     myscreen = curses.initscr()
+    myscreen.border(0)
 
     while True:
-        myscreen.border(0)
-        myscreen.addstr(2, 5, "/dev/lunix0-bat: %s"%bat0.getData())
-        myscreen.addstr(3, 5, "/dev/lunix0-light: %s"%light0.getData())
-        myscreen.addstr(4, 5, "/dev/lunix0-temp: %s"%temp0.getData())
-        myscreen.addstr(5, 5, "/dev/lunix1-bat: %s"%bat1.getData())
-        myscreen.addstr(6, 5, "/dev/lunix1-light: %s"%light1.getData())
-        myscreen.addstr(7, 5, "/dev/lunix1-temp: %s"%temp1.getData())
+        for i,j in enumerate(threads):
+            myscreen.addstr(i+2, 5, str(j))
         myscreen.refresh()   
         sleep(1)
 
