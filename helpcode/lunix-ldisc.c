@@ -71,7 +71,7 @@ static void lunix_ldisc_receive(struct tty_struct *tty,
 #if LUNIX_DEBUG
 	int i;
 
-	debug("called, %d characters have been received. Data at *cp: { ", count);
+	//debug("called, %d characters have been received. Data at *cp: { ", count);
 	for (i = 0; i < count; i++)
 		printk("0x%02x%s", cp[i], (i == count - 1) ? "" : ", ");
 	printk(" }\n");

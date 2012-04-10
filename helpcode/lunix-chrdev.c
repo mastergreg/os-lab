@@ -44,7 +44,7 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
 	
 	WARN_ON ( !(sensor = state->sensor));
 	/* TODO */
-    if ( sensor->msr_data[state->type]->last_update > state->buf_timestamp ) {
+    if ( sensor->msr_data[state->type]->last_update != state->buf_timestamp ) {
         return 1;
     }
 
@@ -108,10 +108,10 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
 
 	/* TODO */
     if ( newdata==1 ) {
-        if ( down_interruptible( &state -> lock ) ) {
-            ret = -EAGAIN;
-            goto out;
-        }
+        //if ( down_interruptible( &state -> lock ) ) {
+        //    ret = -EAGAIN;
+        //    goto out;
+        //}
         data_value = lookup[ state -> type ][ data ];
         
         sign = ( int ) data_value >= 0 ? '+' : '-';
@@ -123,7 +123,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
         state -> buf_timestamp = timestamp;
         state -> buf_lim = strnlen( state -> buf_data, LUNIX_CHRDEV_BUFSZ );
 
-        up( &state -> lock );
+        //up( &state -> lock );
         ret = 0;
     }
     else {
@@ -239,8 +239,13 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 	 * updated by actual sensor data (i.e. we need to report
 	 * on a "fresh" measurement, do so
 	 */
+    if (down_interruptible( &state -> lock ) ) {
+        ret = -ERESTARTSYS;
+        goto out;
+    }
 	if (*f_pos == 0) {
 		while (lunix_chrdev_state_update(state) == -EAGAIN) {
+            up( &state -> lock );
 			/* TODO 
 			   The process needs to sleep 
 			   See LDD3, page 153 for a hint */
@@ -248,13 +253,21 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
                 ret =  -EAGAIN;
                 goto out;
             }
-            prepare_to_wait( &sensor -> wq, &mwait, TASK_INTERRUPTIBLE );
-            schedule();
-            finish_wait( &sensor -> wq, &mwait );
+            //prepare_to_wait( &sensor -> wq, &mwait, TASK_INTERRUPTIBLE );
+            //schedule();
+            //finish_wait( &sensor -> wq, &mwait );
             /*
              * it should be interruptible
              * the spinlock spins
              */
+            if ( wait_event_interruptible(sensor->wq, lunix_chrdev_state_needs_refresh(state) ) ) {
+                ret = -ERESTARTSYS;
+                goto out;
+            }
+            if ( down_interruptible( &state -> lock ) ) {
+                ret = -ERESTARTSYS;
+                goto out;
+            }
 		}
 	}
 
@@ -263,10 +276,10 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
     /*
      * now we can lock
      */
-    if ( down_interruptible(&state->lock) ) {
-        ret = -ERESTARTSYS;
-        goto out;
-    }
+    //if ( down_interruptible(&state->lock) ) {
+    //    ret = -ERESTARTSYS;
+    //    goto out;
+    //}
 
 	/* End of file */
 	/* TODO */
