@@ -58,6 +58,9 @@ clean:
 lunix-attach: lunix.h lunix-attach.c
 	$(CC) $(USER_CFLAGS) -o $@ lunix-attach.c
 
+indent:
+	astyle --style=linux *.{c,h}
+
 #
 # Automagically generated lookup tables
 # 

@@ -13,7 +13,7 @@
 /* Compile-time parameters */
 #define LUNIX_VERSION_STRING	"0.1701-D"
 
-#ifdef __KERNEL__ 
+#ifdef __KERNEL__
 
 #include <linux/fs.h>
 #include <linux/tty.h>
@@ -29,23 +29,23 @@
 
 enum lunix_msr_enum { BATT = 0, TEMP, LIGHT, N_LUNIX_MSR };
 struct lunix_sensor_struct {
-	/*
-	 * A number of pages, one for each measurement.
-	 * They can be mapped to userspace.
-	 */
-	struct lunix_msr_data_struct *msr_data[N_LUNIX_MSR];
+    /*
+     * A number of pages, one for each measurement.
+     * They can be mapped to userspace.
+     */
+    struct lunix_msr_data_struct *msr_data[N_LUNIX_MSR];
 
-	/*
-	 * Spinlock used to assert mutual exclusion between
-	 * the serial line discipline and the character device driver
-	 */
-	spinlock_t lock;
+    /*
+     * Spinlock used to assert mutual exclusion between
+     * the serial line discipline and the character device driver
+     */
+    spinlock_t lock;
 
-	/*
-	 * A list of processes waiting to be woken up
-	 * when this sensor has been updated with new data
-	 */
-	wait_queue_head_t wq;
+    /*
+     * A list of processes waiting to be woken up
+     * when this sensor has been updated with new data
+     */
+    wait_queue_head_t wq;
 };
 
 /*
@@ -72,7 +72,7 @@ extern struct lunix_protocol_state_struct lunix_protocol_state;
 int lunix_sensor_init(struct lunix_sensor_struct *);
 void lunix_sensor_destroy(struct lunix_sensor_struct *);
 void lunix_sensor_update(struct lunix_sensor_struct *s,
-	uint16_t batt, uint16_t temp, uint16_t light);
+                         uint16_t batt, uint16_t temp, uint16_t light);
 
 #else
 #include <inttypes.h>
@@ -83,9 +83,9 @@ void lunix_sensor_update(struct lunix_sensor_struct *s,
  * meant to be mappable to userspace.
  */
 struct lunix_msr_data_struct {
-	uint32_t magic;
-	uint32_t last_update;
-	uint32_t values[];
+    uint32_t magic;
+    uint32_t last_update;
+    uint32_t values[];
 };
 
 /*

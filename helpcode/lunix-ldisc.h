@@ -13,7 +13,7 @@
 
 /* Compile-time parameters */
 
-#ifdef __KERNEL__ 
+#ifdef __KERNEL__
 
 /*
  * Function prototypes

@@ -3,3 +3,4 @@ local
 *.cmd
 *.ko
 *.pyc
+orig
