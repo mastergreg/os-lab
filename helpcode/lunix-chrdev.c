@@ -195,6 +195,7 @@ static int lunix_chrdev_release(struct inode *inode, struct file *filp)
      * possible memory leak exists
      * on multiple calls to open
      */
+    kfree( filp -> private_data );
     return 0;
 }
 
@@ -214,13 +215,13 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
     DEFINE_WAIT( mwait ) ;
 
     state = filp->private_data;
-    if (WARN_ON(!state) ) {
+    if ( WARN_ON(!state) ) {
         ret = -EINVAL;
         goto out;
     }
 
     sensor = state->sensor;
-    if (WARN_ON(!sensor) ) {
+    if ( WARN_ON(!sensor) ) {
         ret = -EINVAL;
         goto out;
     }
