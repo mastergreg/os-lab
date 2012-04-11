@@ -120,8 +120,12 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
         state->buf_lim = strnlen(state->buf_data, LUNIX_CHRDEV_BUFSZ);
 
         ret = 0;
-    } else {
+    } else if (state->buf_lim){
         ret = -EAGAIN;
+        goto out;
+    }
+    else {
+        ret = -EFAULT;
         goto out;
     }
 
@@ -212,7 +216,6 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
 
     struct lunix_sensor_struct *sensor;
     struct lunix_chrdev_state_struct *state;
-    DEFINE_WAIT(mwait) ;
 
     state = filp->private_data;
     if (WARN_ON(!state)) {
@@ -245,11 +248,10 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
                 ret =  -EAGAIN;
                 goto out;
             }
-            prepare_to_wait(&sensor->wq, &mwait, TASK_INTERRUPTIBLE);
-            schedule();
-            finish_wait(&sensor->wq, &mwait);
-            if (signal_pending(current))
-                return -ERESTARTSYS;
+            if (wait_event_interruptible(sensor->wq, lunix_chrdev_state_needs_refresh(state))) {
+                ret = -ERESTARTSYS;
+                goto out;
+            }
             if (down_interruptible(&state->lock)) {
                 ret = -ERESTARTSYS;
                 goto out;
@@ -262,22 +264,22 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
     /* FIXME:
      * this seems logical but needs testing
      */
-    if (!state->buf_lim) {
+    if (state->buf_lim == 0) {
         ret = 0;
-        goto out;
+        goto outL;
     }
 
     /* Determine the number of cached bytes to copy to userspace */
     /* TODO */
     remaining = state->buf_lim - *f_pos;
 
-    cnt = cnt >  remaining ? remaining : cnt;
+    cnt = cnt > remaining ? remaining : cnt;
     /*
      * copy_to_user returns number of bytes that remain
      */
     if (copy_to_user(usrbuf, state->buf_data + *f_pos, cnt)) {
         ret = -EFAULT;
-        goto out;
+        goto outL;
     }
     /*
      * on success this will be zero
@@ -298,16 +300,17 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
     if (*f_pos >= state->buf_lim) {
         debug("limit reached\n");
         *f_pos = 0;
-        goto out;
+        goto outL;
     }
     /*
      * FIXME:
      * EOF means that f_pos >= state->buf_lim
      * it's handled already
      */
-out:
+outL:
     /* Unlock? */
     up(&state->lock) ;
+out:
     return ret;
 }
 
