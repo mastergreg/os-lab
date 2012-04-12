@@ -169,7 +169,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
     /* TODO */
     state = kmalloc(sizeof(struct lunix_chrdev_state_struct) , GFP_KERNEL);
     if (!state) {
-        //printk(KERN_ERR,"linux_chrdev_open:failed to allocate resource\n");
+        printk(KERN_ERR "linux_chrdev_open:failed to allocate resource\n");
         ret = -EFAULT;
         goto out;
     }
@@ -218,10 +218,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
     struct lunix_chrdev_state_struct *state;
 
     state = filp->private_data;
-    if (WARN_ON(!state)) {
-        ret = -EINVAL;
-        goto out;
-    }
+    WARN_ON(!state);
 
     sensor = state->sensor;
     WARN_ON(!sensor);
@@ -235,7 +232,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
      */
     /* Lock? */
     if (down_interruptible(&state->lock)) {
-        ret = - EAGAIN;
+        ret = -EAGAIN;
         goto out;
     }
     if (*f_pos == 0) {
@@ -245,7 +242,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
                The process needs to sleep
                See LDD3, page 153 for a hint */
             if (filp->f_flags & O_NONBLOCK) {
-                ret =  -EAGAIN;
+                ret = -EAGAIN;
                 goto out;
             }
             if (wait_event_interruptible(sensor->wq, lunix_chrdev_state_needs_refresh(state))) {
@@ -266,7 +263,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
      */
     if (state->buf_lim == 0) {
         ret = 0;
-        goto outL;
+        goto out_with_lock;
     }
 
     /* Determine the number of cached bytes to copy to userspace */
@@ -279,7 +276,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
      */
     if (copy_to_user(usrbuf, state->buf_data + *f_pos, cnt)) {
         ret = -EFAULT;
-        goto outL;
+        goto out_with_lock;
     }
     /*
      * on success this will be zero
@@ -300,14 +297,14 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
     if (*f_pos >= state->buf_lim) {
         debug("limit reached\n");
         *f_pos = 0;
-        goto outL;
+        goto out_with_lock;
     }
     /*
      * FIXME:
      * EOF means that f_pos >= state->buf_lim
      * it's handled already
      */
-outL:
+out_with_lock:
     /* Unlock? */
     up(&state->lock) ;
 out:
@@ -316,8 +313,41 @@ out:
 
 static int lunix_chrdev_mmap(struct file *filp, struct vm_area_struct *vma)
 {
-    return -EINVAL;
+    int ret;
+    f (remap_pfn_range(vma, vma->vm_start, vm->vm_pgoff,
+                vma->vm_end - vma->vm_start,
+                vma->vm_page_prot))
+        ret = -EAGAIN;
+        goto out
+    vma->vm_ops = &lunix_remap_vm_ops;
+    lunix_vma_open(vma);
+
+out:
+    return ret;
 }
+
+/*
+ * do we need vma operatrions?
+ */
+/*
+ * i think these should be static
+ * ldd3 doesn't
+ * FIXME
+ */
+static void lunix_vma_open(struct vm_area_struct *vma)
+{
+    debug("Lunix VMA open, virt %lx, phys %lx\n", vma->vm_start, vma->vm_pgoff << PAGE_SHIFT);
+}
+static void lunix_vma_close(struct vm_area_struct *vma)
+{
+    debug("Lunix VMA close.\n");
+}
+static struct vm_operations_struct lunix_remap_vm_ops = {
+    .open = lunix_vma_open,
+    .close = lunix_vma_close,
+};
+
+
 
 static struct file_operations lunix_chrdev_fops = {
     .owner          = THIS_MODULE,
@@ -345,20 +375,18 @@ int lunix_chrdev_init(void)
 
     /* FIXME: isn't this set in the initialization?
      * a few lines above ? */
-    lunix_chrdev_cdev.owner = THIS_MODULE;
+    //lunix_chrdev_cdev.owner = THIS_MODULE;
 
     dev_no = MKDEV(LUNIX_CHRDEV_MAJOR, 0);
     /* TODO */
     /* register_chrdev_region? */
-    ret = register_chrdev_region(dev_no, lunix_minor_cnt, "lunix");
-    if (ret < 0) {
+    if (ret = register_chrdev_region(dev_no, lunix_minor_cnt, "lunix")) {
         debug("failed to register region, ret = %d\n", ret);
         goto out;
     }
     /* TODO */
     /* cdev_add? */
-    ret = cdev_add(&lunix_chrdev_cdev, dev_no, lunix_minor_cnt);
-    if (ret < 0) {
+    if (ret = cdev_add(&lunix_chrdev_cdev, dev_no, lunix_minor_cnt)) {
         debug("failed to add character device\n");
         goto out_with_chrdev_region;
     }
