@@ -5,3 +5,4 @@ local
 *.pyc
 orig
 *tmp*
+*.pdf
