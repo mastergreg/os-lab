@@ -311,23 +311,10 @@ out:
     return ret;
 }
 
-static int lunix_chrdev_mmap(struct file *filp, struct vm_area_struct *vma)
-{
-    int ret;
-    f (remap_pfn_range(vma, vma->vm_start, vm->vm_pgoff,
-                vma->vm_end - vma->vm_start,
-                vma->vm_page_prot))
-        ret = -EAGAIN;
-        goto out
-    vma->vm_ops = &lunix_remap_vm_ops;
-    lunix_vma_open(vma);
-
-out:
-    return ret;
-}
 
 /*
  * do we need vma operatrions?
+ * yes we do ldd3 p432
  */
 /*
  * i think these should be static
@@ -343,9 +330,23 @@ static void lunix_vma_close(struct vm_area_struct *vma)
     debug("Lunix VMA close.\n");
 }
 static struct vm_operations_struct lunix_remap_vm_ops = {
-    .open = lunix_vma_open,
-    .close = lunix_vma_close,
+    .open           = lunix_vma_open,
+    .close          = lunix_vma_close,
 };
+static int lunix_chrdev_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+    int ret;
+    if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff, vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
+        ret = -EAGAIN;
+        goto out;
+    }
+    vma->vm_ops = &lunix_remap_vm_ops;
+    lunix_vma_open(vma);
+    ret = 0;
+
+out:
+    return ret;
+}
 
 
 
@@ -380,18 +381,19 @@ int lunix_chrdev_init(void)
     dev_no = MKDEV(LUNIX_CHRDEV_MAJOR, 0);
     /* TODO */
     /* register_chrdev_region? */
-    if (ret = register_chrdev_region(dev_no, lunix_minor_cnt, "lunix")) {
+    if ((ret = register_chrdev_region(dev_no, lunix_minor_cnt, "lunix"))) {
         debug("failed to register region, ret = %d\n", ret);
         goto out;
     }
     /* TODO */
     /* cdev_add? */
-    if (ret = cdev_add(&lunix_chrdev_cdev, dev_no, lunix_minor_cnt)) {
+    if ((ret = cdev_add(&lunix_chrdev_cdev, dev_no, lunix_minor_cnt))) {
         debug("failed to add character device\n");
         goto out_with_chrdev_region;
     }
     debug("completed successfully\n");
-    return 0;
+    ret = 0;
+    goto out;
 
 out_with_chrdev_region:
     unregister_chrdev_region(dev_no, lunix_minor_cnt);
