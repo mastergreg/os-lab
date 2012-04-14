@@ -39,7 +39,7 @@ KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 KERNEL_MAKE_ARGS ?= ARCH=um SUBARCH=i386
 # Extra CFLAGS used to compile the userspace helpers
 # e.g., -m32 if compiling in a 64-bit environment.
-USER_CFLAGS = -Wall -Werror -m32
+USER_CFLAGS = -Wall -Werror -g -m32
 
 PWD       := $(shell pwd)
 
@@ -69,4 +69,6 @@ lunix-lookup.h: mk_lookup_tables
 
 mk_lookup_tables: mk_lookup_tables.c
 	$(CC) $(USER_CFLAGS) -o mk_lookup_tables mk_lookup_tables.c -lm
+lunix-mmapper:	lunix-mmapper.c
+	$(CC) $(USER_CFLAGS) $< -o mmaper
 

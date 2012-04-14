@@ -321,6 +321,9 @@ out:
  * ldd3 doesn't
  * FIXME
  */
+/*
+ * is this enough?
+ */
 static void lunix_vma_open(struct vm_area_struct *vma)
 {
     debug("Lunix VMA open, virt %lx, phys %lx\n", vma->vm_start, vma->vm_pgoff << PAGE_SHIFT);
@@ -343,7 +346,6 @@ static int lunix_chrdev_mmap(struct file *filp, struct vm_area_struct *vma)
     vma->vm_ops = &lunix_remap_vm_ops;
     lunix_vma_open(vma);
     ret = 0;
-
 out:
     return ret;
 }
