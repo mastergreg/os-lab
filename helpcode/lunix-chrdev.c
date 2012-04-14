@@ -110,22 +110,42 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
     if (newdata==1) {
         data_value = lookup[state->type][data];
 
-        sign = (int) data_value >= 0 ? ' ' : '-';
-        decimal = data_value / 1000;
-        fractional = data_value % 1000;
+        switch (state->mode) {
+            case COOKED:
+                sign = (int) data_value >= 0 ? ' ' : '-';
+                decimal = data_value / 1000;
+                fractional = data_value % 1000;
 
-        snprintf(state->buf_data, LUNIX_CHRDEV_BUFSZ, "%c%d.%d\n", sign, decimal , fractional);
-        state->buf_data[LUNIX_CHRDEV_BUFSZ - 1]='\0';
+                snprintf(state->buf_data, LUNIX_CHRDEV_BUFSZ, "%c%d.%d\n", sign, decimal , fractional);
+                state->buf_data[LUNIX_CHRDEV_BUFSZ - 1]='\0';
+                break;
+            case RAW:
+                state->buf_data[0] = data;
+                state->buf_data[1] = '\0';
+                break;
+            default:
+                ret = -EFAULT;
+                goto out;
+        }
         state->buf_timestamp = timestamp;
         state->buf_lim = strnlen(state->buf_data, LUNIX_CHRDEV_BUFSZ);
 
         ret = 0;
-    } else if (state->buf_lim){
+    } else if (state->buf_lim > 0) {
+        /*
+         * if i have data but no new data
+         * i should return EAGAIN
+         */
         ret = -EAGAIN;
         goto out;
     }
     else {
-        ret = -EFAULT;
+        /*
+         * FIXME:
+         * If i have no data whatsoever
+         * what should i return?
+         */
+        ret = -ERESTARTSYS;
         goto out;
     }
 
@@ -178,6 +198,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
     state->buf_lim = 0;
     state->sensor = &lunix_sensors[(minor >> 3)];
     state->buf_timestamp = 0;
+    state->mode = COOKED;
 
     sema_init(&state->lock, 1);
 
@@ -203,10 +224,37 @@ static int lunix_chrdev_release(struct inode *inode, struct file *filp)
     return 0;
 }
 
-static long lunix_chrdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
-{
-    /* Why? */
-    return -EINVAL;
+static long lunix_chrdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
+     /* Why? */
+     /* raw data, not bad... */
+    int ret;
+    struct lunix_chrdev_state_struct *state;
+    state = filp->private_data;
+    if (_IOC_TYPE(cmd) != LUNIX_IOC_MAGIC) 
+        return -ENOTTY;
+    /*
+     * lets not use this
+     */
+    /*
+     * if (_IOC_NR(cmd) > LUNIX_IOC_MAXNR) 
+     *    return -ENOTTY;
+     */
+    /*
+     * we have the default
+     */
+    switch (cmd) {
+        case LUNIX_IOC_RAW:
+            state->mode = RAW;
+            ret = 0;
+            break;
+        case LUNIX_IOC_COOKED:
+            state->mode = COOKED;
+            ret = 0;
+            break;
+        default:
+            ret = -ENOTTY;
+    }
+    return ret;
 }
 
 static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t cnt, loff_t *f_pos)
@@ -232,7 +280,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
      */
     /* Lock? */
     if (down_interruptible(&state->lock)) {
-        ret = -EAGAIN;
+        ret = -ERESTARTSYS;
         goto out;
     }
     if (*f_pos == 0) {
