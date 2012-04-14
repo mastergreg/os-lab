@@ -73,7 +73,6 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
     int ret;
 
 
-    debug("leaving\n");
 
     WARN_ON (!(sensor = state->sensor));
 
@@ -117,11 +116,13 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
                 fractional = data_value % 1000;
 
                 snprintf(state->buf_data, LUNIX_CHRDEV_BUFSZ, "%c%d.%d\n", sign, decimal , fractional);
+                debug("smels good: %s\n", state->buf_data);
                 state->buf_data[LUNIX_CHRDEV_BUFSZ - 1]='\0';
                 break;
             case RAW:
                 state->buf_data[0] = data;
                 state->buf_data[1] = '\0';
+                debug("there will be blood: %s\n", state->buf_data);
                 break;
             default:
                 ret = -EFAULT;
