@@ -226,8 +226,8 @@ static int lunix_chrdev_release(struct inode *inode, struct file *filp)
 }
 
 static long lunix_chrdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
-     /* Why? */
-     /* raw data, not bad... */
+    /* Why? */
+    /* raw data, not bad... */
     int ret;
     struct lunix_chrdev_state_struct *state;
     state = filp->private_data;
@@ -245,16 +245,27 @@ static long lunix_chrdev_ioctl(struct file *filp, unsigned int cmd, unsigned lon
      */
     switch (cmd) {
         case LUNIX_IOC_RAW:
+            if (down_interruptible(&state->lock)) {
+                ret = -ERESTARTSYS;
+                goto out;
+            }
             state->mode = RAW;
+            up(&state->lock);
             ret = 0;
             break;
         case LUNIX_IOC_COOKED:
+            if (down_interruptible(&state->lock)) {
+                ret = -ERESTARTSYS;
+                goto out;
+            }
             state->mode = COOKED;
+            up(&state->lock);
             ret = 0;
             break;
         default:
             ret = -ENOTTY;
     }
+out:
     return ret;
 }
 
@@ -284,24 +295,28 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
         ret = -ERESTARTSYS;
         goto out;
     }
-    if (*f_pos == 0) {
-        while (lunix_chrdev_state_update(state) == -EAGAIN) {
-            up(&state->lock);
-            /* TODO
-               The process needs to sleep
-               See LDD3, page 153 for a hint */
-            if (filp->f_flags & O_NONBLOCK) {
-                ret = -EAGAIN;
-                goto out;
-            }
-            if (wait_event_interruptible(sensor->wq, lunix_chrdev_state_needs_refresh(state))) {
-                ret = -ERESTARTSYS;
-                goto out;
-            }
-            if (down_interruptible(&state->lock)) {
-                ret = -ERESTARTSYS;
-                goto out;
-            }
+    /*
+     * FIXME: there is a race condition here
+     * 2 procs with the same struct file
+     * will race
+     * what will happen if the first won't consume all the data?
+     */
+    while (*f_pos == 0 && lunix_chrdev_state_update(state) == -EAGAIN) {
+        up(&state->lock);
+        /* TODO
+           The process needs to sleep
+           See LDD3, page 153 for a hint */
+        if (filp->f_flags & O_NONBLOCK) {
+            ret = -EAGAIN;
+            goto out;
+        }
+        if (wait_event_interruptible(sensor->wq, lunix_chrdev_state_needs_refresh(state))) {
+            ret = -ERESTARTSYS;
+            goto out;
+        }
+        if (down_interruptible(&state->lock)) {
+            ret = -ERESTARTSYS;
+            goto out;
         }
     }
     debug("read some data\n") ;
