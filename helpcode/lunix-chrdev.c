@@ -125,6 +125,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
                 debug("there will be blood: %s\n", state->buf_data);
                 break;
             default:
+                printk(KERN_ERR "Memory corruption? flag shouldn't have such value\n");
                 ret = -EFAULT;
                 goto out;
         }
@@ -301,13 +302,16 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
      * will race
      * what will happen if the first won't consume all the data?
      */
-    while (*f_pos == 0 && lunix_chrdev_state_update(state) == -EAGAIN) {
+    while (*f_pos == 0 && (ret = lunix_chrdev_state_update(state)) == -EAGAIN) {
         up(&state->lock);
         /* TODO
            The process needs to sleep
            See LDD3, page 153 for a hint */
         if (filp->f_flags & O_NONBLOCK) {
             ret = -EAGAIN;
+            goto out;
+        }
+        if (ret == -EFAULT) {
             goto out;
         }
         if (wait_event_interruptible(sensor->wq, lunix_chrdev_state_needs_refresh(state))) {
