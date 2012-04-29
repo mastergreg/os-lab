@@ -1,7 +1,7 @@
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
 * File Name : lunix-ioctl-reader.c
 * Creation Date : 14-04-2012
-* Last Modified : Sat 14 Apr 2012 08:29:17 PM EEST
+* Last Modified : Sun 29 Apr 2012 06:54:30 PM EEST
 * Created By : Greg Liras <gregliras@gmail.com>
 _._._._._._._._._._._._._._._._._._._._._.*/
 
@@ -29,10 +29,10 @@ int main(int argc, char **argv)
     buf[1023]='\0';
     unsigned int *map;
 
-    ioctl(fd, 0, NULL);
+    ioctl(fd, LUNIX_IOC_RAW, NULL);
 
     while (read(fd, buf, 1023)) {
-        printf("state type: %s\n", buf);
+        printf("raw type: %X\n", buf[0]);
     }
 
     return 0;
