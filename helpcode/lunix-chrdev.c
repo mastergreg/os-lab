@@ -124,7 +124,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
             state->buf_data[0] = data;
             state->buf_data[1] = '\0';
             state->buf_lim = 1;
-            debug("there will be blood: %s\n", state->buf_data);
+            debug("there will be blood: 0x%02x\n", state->buf_data[0]);
             break;
         default:
             printk(KERN_CRIT "lunix-tng: internal error, mode flag for file 0x%p is %d, not one of {0,1}",state,state->mode);
