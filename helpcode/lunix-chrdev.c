@@ -110,27 +110,28 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
         data_value = lookup[state->type][data];
 
         switch (state->mode) {
-            case COOKED:
-                sign = (int) data_value >= 0 ? ' ' : '-';
-                decimal = data_value / 1000;
-                fractional = data_value % 1000;
+        case COOKED:
+            sign = (int) data_value >= 0 ? ' ' : '-';
+            decimal = data_value / 1000;
+            fractional = data_value % 1000;
 
-                snprintf(state->buf_data, LUNIX_CHRDEV_BUFSZ, "%c%d.%d\n", sign, decimal , fractional);
-                debug("smels good: %s\n", state->buf_data);
-                state->buf_data[LUNIX_CHRDEV_BUFSZ - 1]='\0';
-                break;
-            case RAW:
-                state->buf_data[0] = data;
-                state->buf_data[1] = '\0';
-                debug("there will be blood: %s\n", state->buf_data);
-                break;
-            default:
-                printk(KERN_ERR "Memory corruption? flag shouldn't have such value\n");
-                ret = -EFAULT;
-                goto out;
+            snprintf(state->buf_data, LUNIX_CHRDEV_BUFSZ, "%c%d.%d\n", sign, decimal , fractional);
+            debug("smels good: %s\n", state->buf_data);
+            state->buf_data[LUNIX_CHRDEV_BUFSZ - 1]='\0';
+            state->buf_lim = strnlen(state->buf_data, LUNIX_CHRDEV_BUFSZ);
+            break;
+        case RAW:
+            state->buf_data[0] = data;
+            state->buf_data[1] = '\0';
+            state->buf_lim = 1;
+            debug("there will be blood: %s\n", state->buf_data);
+            break;
+        default:
+            printk(KERN_CRIT "lunix-tng: internal error, mode flag for file 0x%p is %d, not one of {0,1}",state,state->mode);
+            ret = -EIO;
+            goto out;
         }
         state->buf_timestamp = timestamp;
-        state->buf_lim = strnlen(state->buf_data, LUNIX_CHRDEV_BUFSZ);
 
         ret = 0;
     } else if (state->buf_lim > 0) {
@@ -140,8 +141,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
          */
         ret = -EAGAIN;
         goto out;
-    }
-    else {
+    } else {
         /*
          * FIXME:
          * If i have no data whatsoever
@@ -226,45 +226,46 @@ static int lunix_chrdev_release(struct inode *inode, struct file *filp)
     return 0;
 }
 
-static long lunix_chrdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg) {
+static long lunix_chrdev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
     /* Why? */
     /* raw data, not bad... */
     int ret;
     struct lunix_chrdev_state_struct *state;
     state = filp->private_data;
-    if (_IOC_TYPE(cmd) != LUNIX_IOC_MAGIC) 
+    if (_IOC_TYPE(cmd) != LUNIX_IOC_MAGIC)
         return -ENOTTY;
     /*
      * lets not use this
      */
     /*
-     * if (_IOC_NR(cmd) > LUNIX_IOC_MAXNR) 
+     * if (_IOC_NR(cmd) > LUNIX_IOC_MAXNR)
      *    return -ENOTTY;
      */
     /*
      * we have the default
      */
     switch (cmd) {
-        case LUNIX_IOC_RAW:
-            if (down_interruptible(&state->lock)) {
-                ret = -ERESTARTSYS;
-                goto out;
-            }
-            state->mode = RAW;
-            up(&state->lock);
-            ret = 0;
-            break;
-        case LUNIX_IOC_COOKED:
-            if (down_interruptible(&state->lock)) {
-                ret = -ERESTARTSYS;
-                goto out;
-            }
-            state->mode = COOKED;
-            up(&state->lock);
-            ret = 0;
-            break;
-        default:
-            ret = -ENOTTY;
+    case LUNIX_IOC_RAW:
+        if (down_interruptible(&state->lock)) {
+            ret = -ERESTARTSYS;
+            goto out;
+        }
+        state->mode = RAW;
+        up(&state->lock);
+        ret = 0;
+        break;
+    case LUNIX_IOC_COOKED:
+        if (down_interruptible(&state->lock)) {
+            ret = -ERESTARTSYS;
+            goto out;
+        }
+        state->mode = COOKED;
+        up(&state->lock);
+        ret = 0;
+        break;
+    default:
+        ret = -ENOTTY;
     }
 out:
     return ret;
@@ -356,7 +357,7 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
     *f_pos += cnt;
 
     /* Auto-rewind on EOF mode? */
-    /* TODO 
+    /* TODO
      * auto-rewind should take place
      * only if there are data
      * otherwise EOF is returned

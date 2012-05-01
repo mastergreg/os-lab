@@ -70,8 +70,8 @@ lunix-lookup.h: mk_lookup_tables
 mk_lookup_tables: mk_lookup_tables.c
 	$(CC) $(USER_CFLAGS) -o mk_lookup_tables mk_lookup_tables.c -lm
 
-linux-ioctl-reader:	lunix-ioctl-reader.c
-	$(CC) $(USER_CFLAGS) $< -o $@
+lunix-ioctl-reader:	lunix-ioctl-reader.c
+	$(CC) $(USER_CFLAGS) -o $@ lunix-ioctl-reader.c
 
 lunix-mmapper:	lunix-mmapper.c
 	$(CC) $(USER_CFLAGS) $< -o $@
