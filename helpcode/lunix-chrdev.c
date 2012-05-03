@@ -408,10 +408,19 @@ static struct vm_operations_struct lunix_remap_vm_ops = {
 static int lunix_chrdev_mmap(struct file *filp, struct vm_area_struct *vma)
 {
     int ret;
+    struct lunix_chrdev_state_struct *state;
+    struct lunix_sensor *sensor;
+    debug("here i am\n");
     if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff, vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
         ret = -EAGAIN;
         goto out;
     }
+    /* don't do anything here: "nopage" will fill the holes */
+    state = filp->private_data;
+    sensor = state->sensor;
+    vma->vm_ops = &lunix_remap_vm_ops;
+    vma->vm_flags |= VM_RESERVED;
+    vma->vm_private_data = sensor->msr_data[state->type]->values;
     vma->vm_ops = &lunix_remap_vm_ops;
     lunix_vma_open(vma);
     ret = 0;

@@ -1,7 +1,7 @@
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
 * File Name : lunix-mmapper.c
 * Creation Date : 14-04-2012
-* Last Modified : Sat 14 Apr 2012 11:10:22 AM EEST
+* Last Modified : %+
 * Created By : Greg Liras <gregliras@gmail.com>
 _._._._._._._._._._._._._._._._._._._._._.*/
 
@@ -21,15 +21,18 @@ int main(int argc, char **argv)
         printf("Usage: %s device\n",argv[0]);
         exit(EXIT_FAILURE);
     }
-    int fd = open(argv[1], 0);
-    int i;
-    unsigned int *map;
+    int fd = open(argv[1], O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600);
 
-    map = mmap(NULL, 42, PROT_READ, MAP_PRIVATE, fd, 0);
+    unsigned int *map1;
 
-    for (i = 0 ; i < 42 ; ++i) {
-        printf("state type: %u\n", map[i]);
+    map1 = mmap(NULL, 1, PROT_READ, MAP_SHARED, fd, 0);
+    if (map1 == MAP_FAILED) {
+        close(fd);
+        perror("Error mmapping the file");
+        exit(EXIT_FAILURE);
     }
+
+    printf("state type: %u\n", map1[0]);
 
     return 0;
 }

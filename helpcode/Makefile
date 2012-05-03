@@ -1,7 +1,7 @@
 ################################################
-# 
+#
 # Makefile
-# for Lunix:TNG 
+# for Lunix:TNG
 #
 # Vangelis Koukis <vkoukis@cslab.ece.ntua.gr>
 #
@@ -18,7 +18,7 @@ DEBUG = y
 # Warnings are errors.
 ifeq ($(DEBUG),y)
   EXTRA_CFLAGS += -g -DLUNIX_DEBUG=1
-  EXTRA_CFLAGS += -Werror
+  #EXTRA_CFLAGS += -Werror
 else
   EXTRA_CFLAGS += -DLUNIX_DEBUG=0
   EXTRA_CFLAGS += -Werror
@@ -48,7 +48,7 @@ all:	modules lunix-attach
 modules: lunix-lookup.h
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) $(KERNEL_VERBOSE) $(KERNEL_MAKE_ARGS) modules
 
-clean: 
+clean:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) $(KERNEL_VERBOSE) $(KERNEL_MAKE_ARGS) clean
 	rm -f modules.order
 	rm -f lunix-attach
@@ -63,7 +63,7 @@ indent:
 
 #
 # Automagically generated lookup tables
-# 
+#
 lunix-lookup.h: mk_lookup_tables
 	./mk_lookup_tables >lunix-lookup.h
 

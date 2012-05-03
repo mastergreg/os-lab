@@ -48,9 +48,9 @@ int __init lunix_module_init(void)
      * successfully initialized sensor.
      */
     for (si_done = -1; si_done < lunix_sensor_cnt - 1; si_done++) {
-        debug("initializing sensor %d\n", si_done + 1);
+        //debug("initializing sensor %d\n", si_done + 1);
         ret = lunix_sensor_init(&lunix_sensors[si_done + 1]);
-        debug("initialized sensor %d, ret = %d\n", si_done + 1, ret);
+        //debug("initialized sensor %d, ret = %d\n", si_done + 1, ret);
         if (ret < 0) {
             goto out_with_sensors;
         }
@@ -75,17 +75,17 @@ int __init lunix_module_init(void)
      * we've done up to this point
      */
 out_with_ldisc:
-    debug("at out_with_ldisc\n");
+    //debug("at out_with_ldisc\n");
     lunix_ldisc_destroy();
 
 out_with_sensors:
-    debug("at out_with_sensors\n");
+    //debug("at out_with_sensors\n");
     for (; si_done >= 0; si_done--)
         lunix_sensor_destroy(&lunix_sensors[si_done]);
     kfree(lunix_sensors);
 
 out:
-    debug("at out\n");
+    //debug("at out\n");
     return ret;
 }
 
@@ -93,11 +93,11 @@ void __exit lunix_module_cleanup(void)
 {
     int si_done;
 
-    debug("entering, destroying chrdev and ldisc\n");
+    //debug("entering, destroying chrdev and ldisc\n");
     lunix_chrdev_destroy();
     lunix_ldisc_destroy();
 
-    debug("destroying sensor buffers\n");
+    //debug("destroying sensor buffers\n");
     for (si_done = lunix_sensor_cnt - 1; si_done >= 0; si_done--)
         lunix_sensor_destroy(&lunix_sensors[si_done]);
     kfree(lunix_sensors);
