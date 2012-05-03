@@ -48,7 +48,6 @@ static int lunix_chrdev_state_needs_refresh(struct lunix_chrdev_state_struct *st
         return 1;
     }
 
-    /* The following return is bogus, just for the stub to compile */
     return 0; /* TODO */
 }
 
@@ -106,30 +105,30 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
      */
 
     /* TODO */
-    if (newdata==1) {
+    if (newdata == 1) {
         data_value = lookup[state->type][data];
 
         switch (state->mode) {
-        case COOKED:
-            sign = (int) data_value >= 0 ? ' ' : '-';
-            decimal = data_value / 1000;
-            fractional = data_value % 1000;
+            case COOKED:
+                sign = (int) data_value >= 0 ? ' ' : '-';
+                decimal = data_value / 1000;
+                fractional = data_value % 1000;
 
-            snprintf(state->buf_data, LUNIX_CHRDEV_BUFSZ, "%c%d.%d\n", sign, decimal , fractional);
-            debug("smels good: %s\n", state->buf_data);
-            state->buf_data[LUNIX_CHRDEV_BUFSZ - 1]='\0';
-            state->buf_lim = strnlen(state->buf_data, LUNIX_CHRDEV_BUFSZ);
-            break;
-        case RAW:
-            state->buf_data[0] = data;
-            state->buf_data[1] = '\0';
-            state->buf_lim = 1;
-            debug("there will be blood: 0x%02x\n", state->buf_data[0]);
-            break;
-        default:
-            printk(KERN_CRIT "lunix-tng: internal error, mode flag for file 0x%p is %d, not one of {0,1}",state,state->mode);
-            ret = -EIO;
-            goto out;
+                snprintf(state->buf_data, LUNIX_CHRDEV_BUFSZ, "%c%d.%d\n", sign, decimal , fractional);
+                debug("smells good: %s\n", state->buf_data);
+                state->buf_data[LUNIX_CHRDEV_BUFSZ - 1]='\0';
+                state->buf_lim = strnlen(state->buf_data, LUNIX_CHRDEV_BUFSZ);
+                break;
+            case RAW:
+                state->buf_data[0] = data;
+                state->buf_data[1] = '\0';
+                state->buf_lim = 1;
+                debug("there will be blood: 0x%02x\n", state->buf_data[0]);
+                break;
+            default:
+                printk(KERN_CRIT "lunix-tng: internal error, mode flag for file 0x%p is %d, not one of {0,1}",state,state->mode);
+                ret = -EIO;
+                goto out;
         }
         state->buf_timestamp = timestamp;
 
@@ -182,7 +181,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
 
     minor = iminor(inode);
     type = minor & 7;
-    if (type > N_LUNIX_MSR ) {
+    if (type >= N_LUNIX_MSR ) {
         ret = -ENODEV;
         goto out;
     }
@@ -196,7 +195,7 @@ static int lunix_chrdev_open(struct inode *inode, struct file *filp)
         goto out;
     }
 
-    state->type = type < N_LUNIX_MSR ? type : 0;
+    state->type = type;
     state->buf_lim = 0;
     state->sensor = &lunix_sensors[(minor >> 3)];
     state->buf_timestamp = 0;
@@ -246,27 +245,29 @@ static long lunix_chrdev_ioctl(struct file *filp, unsigned int cmd, unsigned lon
      * we have the default
      */
     switch (cmd) {
-    case LUNIX_IOC_RAW:
-        if (down_interruptible(&state->lock)) {
-            ret = -ERESTARTSYS;
+        case LUNIX_IOC_RAW:
+            if (down_interruptible(&state->lock)) {
+                ret = -ERESTARTSYS;
+                goto out;
+            }
+            state->mode = RAW;
+            ret = 0;
+            goto out_with_lock;
+        case LUNIX_IOC_COOKED:
+            if (down_interruptible(&state->lock)) {
+                ret = -ERESTARTSYS;
+                goto out;
+            }
+            state->mode = COOKED;
+            ret = 0;
+            goto out_with_lock;
+        default:
+            ret = -ENOTTY;
             goto out;
-        }
-        state->mode = RAW;
-        up(&state->lock);
-        ret = 0;
-        break;
-    case LUNIX_IOC_COOKED:
-        if (down_interruptible(&state->lock)) {
-            ret = -ERESTARTSYS;
-            goto out;
-        }
-        state->mode = COOKED;
-        up(&state->lock);
-        ret = 0;
-        break;
-    default:
-        ret = -ENOTTY;
     }
+out_with_lock:
+    up(&state->lock);
+
 out:
     return ret;
 }
@@ -309,10 +310,6 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
            The process needs to sleep
            See LDD3, page 153 for a hint */
         if (filp->f_flags & O_NONBLOCK) {
-            ret = -EAGAIN;
-            goto out;
-        }
-        if (ret == -EFAULT) {
             goto out;
         }
         if (wait_event_interruptible(sensor->wq, lunix_chrdev_state_needs_refresh(state))) {
@@ -323,6 +320,9 @@ static ssize_t lunix_chrdev_read(struct file *filp, char __user *usrbuf, size_t 
             ret = -ERESTARTSYS;
             goto out;
         }
+    }
+    if (ret == -ERESTARTSYS || ret == -EIO) {
+        goto out_with_lock;
     }
     debug("read some data\n") ;
 
@@ -454,9 +454,7 @@ int lunix_chrdev_init(void)
     /* initialize the chardev */
     cdev_init(&lunix_chrdev_cdev, &lunix_chrdev_fops);
 
-    /* FIXME: isn't this set in the initialization?
-     * a few lines above ? */
-    //lunix_chrdev_cdev.owner = THIS_MODULE;
+    lunix_chrdev_cdev.owner = THIS_MODULE;
 
     dev_no = MKDEV(LUNIX_CHRDEV_MAJOR, 0);
     /* TODO */
