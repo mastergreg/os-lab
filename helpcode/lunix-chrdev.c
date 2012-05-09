@@ -432,6 +432,7 @@ static int lunix_chrdev_remap_mmap(struct vm_area_struct *vma, int *type)
     physical = (virt_to_phys(state->sensor->msr_data[state->type])) >> PAGE_SHIFT;
     vsize = vma->vm_end - vma->vm_start;
     psize = sizeof(struct lunix_msr_data_struct);
+    vma->vm_flags |= VM_RESERVED;
 
     if(vsize > psize) {
         ret = -EINVAL;
