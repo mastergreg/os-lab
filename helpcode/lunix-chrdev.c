@@ -24,6 +24,7 @@
 #include <linux/mmzone.h>
 #include <linux/vmalloc.h>
 #include <linux/spinlock.h>
+#include <asm/io.h>
 
 #include "lunix.h"
 #include "lunix-chrdev.h"
@@ -133,6 +134,7 @@ static int lunix_chrdev_state_update(struct lunix_chrdev_state_struct *state)
         state->buf_timestamp = timestamp;
 
         ret = 0;
+        goto out;
     } else if (state->buf_lim > 0) {
         /*
          * if i have data but no new data
@@ -393,40 +395,60 @@ out:
 /*
  * is this enough?
  */
-static void lunix_vma_open(struct vm_area_struct *vma)
+static void lunix_chrdev_vma_open(struct vm_area_struct *vma)
 {
     debug("Lunix VMA open, virt %lx, phys %lx\n", vma->vm_start, vma->vm_pgoff << PAGE_SHIFT);
 }
-static void lunix_vma_close(struct vm_area_struct *vma)
+
+static void lunix_chrdev_vma_close(struct vm_area_struct *vma)
 {
     debug("Lunix VMA close.\n");
 }
+
 static struct vm_operations_struct lunix_remap_vm_ops = {
-    .open           = lunix_vma_open,
-    .close          = lunix_vma_close,
+    .open           = lunix_chrdev_vma_open,
+    .close          = lunix_chrdev_vma_close,
 };
-static int lunix_chrdev_mmap(struct file *filp, struct vm_area_struct *vma)
+
+
+static int lunix_chrdev_remap_mmap(struct vm_area_struct *vma, int *type)
 {
     int ret;
     struct lunix_chrdev_state_struct *state;
-    struct lunix_sensor *sensor;
-    debug("here i am\n");
-    if (remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff, vma->vm_end - vma->vm_start, vma->vm_page_prot)) {
+    unsigned long physical;
+    unsigned long vsize;
+    unsigned long psize;
+
+    state = vma->vm_private_data;
+
+    /*
+     * FIXME:
+     * this is a warning
+     * cause off is of type unsigned long
+     * physical too
+     * is it correct?
+     */
+
+    physical = virt_to_phys(state->sensor->msr_data[state->type]);
+    vsize = vma->vm_end - vma->vm_start;
+    psize = sizeof(struct lunix_msr_data_struct);
+
+    if(vsize > psize) {
+        ret = -EINVAL;
+        goto out;
+    }
+    if (remap_pfn_range(vma, vma->vm_start, physical, vsize, vma->vm_page_prot)) {
         ret = -EAGAIN;
         goto out;
     }
-    /* don't do anything here: "nopage" will fill the holes */
-    state = filp->private_data;
-    sensor = state->sensor;
     vma->vm_ops = &lunix_remap_vm_ops;
-    vma->vm_flags |= VM_RESERVED;
-    vma->vm_private_data = sensor->msr_data[state->type]->values;
-    vma->vm_ops = &lunix_remap_vm_ops;
-    lunix_vma_open(vma);
+    lunix_chrdev_vma_open(vma);
     ret = 0;
+    goto out;
 out:
     return ret;
 }
+
 
 
 
@@ -436,7 +458,7 @@ static struct file_operations lunix_chrdev_fops = {
     .release        = lunix_chrdev_release,
     .read           = lunix_chrdev_read,
     .unlocked_ioctl = lunix_chrdev_ioctl,
-    .mmap           = lunix_chrdev_mmap
+    .mmap           = lunix_chrdev_remap_mmap
 };
 
 int lunix_chrdev_init(void)
