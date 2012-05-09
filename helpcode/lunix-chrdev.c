@@ -434,7 +434,7 @@ static int lunix_chrdev_remap_mmap(struct vm_area_struct *vma, int *type)
     psize = sizeof(struct lunix_msr_data_struct);
     vma->vm_flags |= VM_RESERVED;
 
-    if(vsize > psize) {
+    if(vsize > psize || vma->vm_end < vma->vm_start) {
         ret = -EINVAL;
         goto out;
     }
