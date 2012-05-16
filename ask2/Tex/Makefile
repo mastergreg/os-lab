@@ -1,7 +1,6 @@
-TARGET=cslabb08-REPORT
-VERSION=1
-TEX=$(TARGET)-$(VERSION).tex
-PDF=$(TARGET)-$(VERSION).pdf
+TARGET=b08_2_mid_report
+TEX=$(TARGET).tex
+PDF=$(TARGET).pdf
 all: $(PDF)
 $(PDF): $(TEX) title/* files/*
 		xelatex -shell-escape $<
