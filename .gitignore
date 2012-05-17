@@ -6,3 +6,6 @@ local
 orig
 *tmp*
 *.pdf
+*.aux
+*.log
+*.pyg
